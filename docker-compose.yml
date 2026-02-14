@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  service_a:
+    build: ./services/service_a
+    container_name: lizardtail_service_a
+    ports:
+      - "5000:5000"
+    networks:
+      - lizardtail_network
+    restart: unless-stopped
+
+  service_b:
+    build: ./services/service_b
+    container_name: lizardtail_service_b
+    ports:
+      - "5001:5001"
+    networks:
+      - lizardtail_network
+    restart: unless-stopped
+
+  orchestrator:
+    build: ./orchestrator
+    container_name: lizardtail_orchestrator
+    ports:
+      - "8000:8000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - lizardtail_network
+    depends_on:
+      - service_a
+      - service_b
+    restart: unless-stopped
+
+networks:
+  lizardtail_network:
+    driver: bridge
