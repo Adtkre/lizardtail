@@ -15,6 +15,10 @@ client = docker.from_env()
 # Event log
 event_log = []
 
+# Auto-heal configuration
+AUTO_HEAL_ENABLED = True
+MONITOR_INTERVAL = 5  # Check every 5 seconds
+
 def log_event(message, event_type="INFO"):
     """Add event to log with timestamp"""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -50,7 +54,6 @@ def check_service_health(service_name, port):
         data = response.json()
         return data.get("status") == "healthy"
     except Exception as e:
-        log_event(f"Health check failed for {service_name}: {str(e)}", "WARNING")
         return False
 
 def heal_service(container_name):
@@ -100,13 +103,39 @@ def heal_service(container_name):
         log_event(f"Failed to heal {container_name}: {str(e)}", "ERROR")
         return False
 
+def auto_monitor():
+    """Background thread that continuously monitors and heals services"""
+    log_event("Auto-monitor thread started", "SYSTEM")
+    time.sleep(10)  # Wait 10 seconds for services to start
+    
+    while AUTO_HEAL_ENABLED:
+        try:
+            # Check service_a health
+            is_healthy = check_service_health("lizardtail_service_a", 5000)
+            
+            if not is_healthy:
+                log_event("DETECTED: service_a is unhealthy! Auto-healing...", "DETECTION")
+                success = heal_service("lizardtail_service_a")
+                if success:
+                    log_event("Auto-heal successful", "SUCCESS")
+                    time.sleep(15)  # Wait after healing
+                else:
+                    log_event("Auto-heal failed", "ERROR")
+            
+            time.sleep(MONITOR_INTERVAL)
+            
+        except Exception as e:
+            log_event(f"Monitor error: {str(e)}", "ERROR")
+            time.sleep(MONITOR_INTERVAL)
+
 @app.route('/status', methods=['GET'])
 def status():
     """Get system status"""
     containers = get_container_status()
     return jsonify({
         "containers": containers,
-        "total": len(containers)
+        "total": len(containers),
+        "auto_heal_enabled": AUTO_HEAL_ENABLED
     }), 200
 
 @app.route('/logs', methods=['GET'])
@@ -160,4 +189,10 @@ def auto_heal():
 
 if __name__ == '__main__':
     log_event("Orchestrator started", "SYSTEM")
+    
+    # Start auto-monitor thread
+    monitor_thread = threading.Thread(target=auto_monitor, daemon=True)
+    monitor_thread.start()
+    log_event("Auto-healing monitoring enabled (checks every 5 seconds)", "SYSTEM")
+    
     app.run(host='0.0.0.0', port=8000, debug=False)
