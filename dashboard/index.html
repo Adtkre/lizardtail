@@ -222,6 +222,42 @@
             border-left-color: #ffffff;
             background: rgba(255, 255, 255, 0.08);
         }
+
+        /* ── NEW from file 2 ── */
+        .log-entry.DETECTION {
+            border-left-color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+        }
+
+        .metric-box {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            margin: 10px 0;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .metric-value {
+            font-size: 2.5em;
+            font-family: 'Bebas Neue', sans-serif;
+            letter-spacing: 2px;
+        }
+
+        .metric-value.normal  { color: #ffffff; }
+        .metric-value.warning { color: #fbbf24; }
+        .metric-value.critical {
+            color: #ffffff;
+            animation: pulse 1s infinite;
+        }
+        /* ── END NEW ── */
         
         button {
             background: transparent;
@@ -366,6 +402,41 @@
                     <span id="heal-count">0</span>
                 </div>
             </div>
+
+            <!-- ── NEW: CPU / Memory / Network cards from file 2 ── -->
+            <div class="card">
+                <h2> CPU Usage</h2>
+                <div class="metric-box">
+                    <div class="metric-label">Current Load</div>
+                    <div class="metric-value normal" id="cpu-value">--</div>
+                </div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <span class="status-badge status-healthy" id="cpu-status">NORMAL</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2> Memory Usage</h2>
+                <div class="metric-box">
+                    <div class="metric-label">RAM Consumption</div>
+                    <div class="metric-value normal" id="memory-value">--</div>
+                </div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <span class="status-badge status-healthy" id="memory-status">NORMAL</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2> Network Traffic</h2>
+                <div class="metric-box">
+                    <div class="metric-label">Throughput (MB)</div>
+                    <div class="metric-value normal" id="network-value">--</div>
+                </div>
+                <div style="text-align: center; margin-top: 15px;">
+                    <span class="status-badge status-healthy" id="network-status">NORMAL</span>
+                </div>
+            </div>
+            <!-- ── END NEW ── -->
             
             <div class="card full-width">
                 <h2> Event Logs:</h2>
@@ -534,6 +605,41 @@
             }
         }
 
+        /* ---------------- CPU / MEMORY / NETWORK (NEW) ---------------- */
+        function updateMetricDisplay(elementId, value, unit, statusId) {
+            const elem = document.getElementById(elementId);
+            const statusElem = document.getElementById(statusId);
+            elem.textContent = value + unit;
+
+            let numValue = parseFloat(value);
+            if (numValue > 90) {
+                elem.className = 'metric-value critical';
+                statusElem.className = 'status-badge status-infected';
+                statusElem.textContent = 'CRITICAL';
+            } else if (numValue > 70) {
+                elem.className = 'metric-value warning';
+                statusElem.className = 'status-badge status-running';
+                statusElem.textContent = 'WARNING';
+            } else {
+                elem.className = 'metric-value normal';
+                statusElem.className = 'status-badge status-healthy';
+                statusElem.textContent = 'NORMAL';
+            }
+        }
+
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/metrics');
+                const data = await response.json();
+
+                updateMetricDisplay('cpu-value',     data.cpu,     '%',   'cpu-status');
+                updateMetricDisplay('memory-value',  data.memory,  '%',   'memory-status');
+                updateMetricDisplay('network-value', data.network, ' MB', 'network-status');
+            } catch (error) {
+                console.error('Failed to fetch metrics:', error);
+            }
+        }
+
         /* ---------------- CONTAINERS ---------------- */
         async function fetchContainers() {
             try {
@@ -609,10 +715,12 @@
         setInterval(fetchTemperature, 1000);
         setInterval(fetchContainers, 2000);
         setInterval(fetchLogs, 2000);
+        setInterval(fetchMetrics, 1000);
 
         fetchTemperature();
         fetchContainers();
         fetchLogs();
+        fetchMetrics();
     </script>
 </body>
 </html>
