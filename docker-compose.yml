@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   service_a:
-    build: ./services/service_a
+    build:
+      context: ./services/service_a
+      network: host
     container_name: lizardtail_service_a
     ports:
       - "5000:5000"
@@ -11,7 +13,9 @@ services:
     restart: unless-stopped
 
   service_b:
-    build: ./services/service_b
+    build:
+      context: ./services/service_b
+      network: host
     container_name: lizardtail_service_b
     ports:
       - "5001:5001"
@@ -20,18 +24,35 @@ services:
     restart: unless-stopped
 
   orchestrator:
-    build: ./orchestrator
+    build:
+      context: ./orchestrator
+      network: host
     container_name: lizardtail_orchestrator
     ports:
       - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./dashboard:/dashboard
     networks:
       - lizardtail_network
     depends_on:
       - service_a
       - service_b
     restart: unless-stopped
+
+  agent:
+    build:
+      context: ./agent
+      network: host
+    container_name: lizardtail_agent
+    networks:
+      - lizardtail_network
+    depends_on:
+      - orchestrator
+    restart: unless-stopped
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8000
+      - SERVICE_A_URL=http://service_a:5000
 
 networks:
   lizardtail_network:

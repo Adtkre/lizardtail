@@ -7,11 +7,10 @@ import psutil
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-# ── Global state ──────────────────────────────────────────────
-infected = False   # MUST be module-level; every route uses `global infected`
+#Global state
+infected = False  
 
-
-# ── Helpers ───────────────────────────────────────────────────
+#  Helpers 
 def get_real_metrics():
     """Return real container metrics, fall back to random on error."""
     try:
@@ -40,7 +39,7 @@ def get_real_metrics():
 @app.route('/metrics', methods=['GET'])
 def metrics():
     if infected:
-        time.sleep(0.5)   # simulate degraded response (was 2 s — too slow for UI)
+        time.sleep(0.5)   
         return jsonify({
             "cpu":         round(random.uniform(95, 99.9), 1),
             "memory":      round(random.uniform(90, 99), 1),
@@ -55,9 +54,8 @@ def metrics():
         return jsonify({**m, "status": "healthy", "service": "service_a", "source": "real"}), 200
 
 
-# ── /sensor ───────────────────────────────────────────────────
-# FIX: was calling metrics() and treating the Response object as a dict — now
-#      we call get_real_metrics() directly so we always get a plain dict.
+# sensor 
+
 @app.route('/sensor', methods=['GET'])
 def sensor():
     if infected:
@@ -68,12 +66,10 @@ def sensor():
         return jsonify({"temperature": m["cpu"], "status": "healthy", "service": "service_a"}), 200
 
 
-# ── /infect ───────────────────────────────────────────────────
-# FIX: `global infected` was missing — without it Python treats `infected`
-#      as a local variable and the assignment never persists.
+#infect 
 @app.route('/infect', methods=['POST'])
 def infect():
-    global infected          # ← this was the main bug
+    global infected         
     infected = True
     return jsonify({
         "message":     "Service infected — resource exhaustion attack initiated",
@@ -82,8 +78,7 @@ def infect():
     }), 200
 
 
-# ── /health ───────────────────────────────────────────────────
-@app.route('/health', methods=['GET'])
+# health 
 def health():
     return jsonify({
         "status":  "infected" if infected else "healthy",
@@ -91,7 +86,7 @@ def health():
     }), 200
 
 
-# ── Run ───────────────────────────────────────────────────────
+# Run 
 if __name__ == '__main__':
     print("service_a running on port 5000")
     app.run(host='0.0.0.0', port=5000, debug=False)

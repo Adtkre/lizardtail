@@ -3,401 +3,594 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LizardTail - Self-Healing System Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+    <title>LizardTail SOC Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg: #050914;
+            --panel: #0a101d;
+            --accent: #00ffcc;
+            --danger: #ff3366;
+            --warn: #ffcc00;
+            --border: rgba(0, 255, 204, 0.2);
+            --text: #e0f2fe;
+            --glass: rgba(10, 16, 29, 0.7);
+        }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0a0a0a;
-            color: #e5e5e5;
-            padding: 20px;
+            margin: 0;
+            padding: 0;
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(0, 255, 204, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(255, 51, 102, 0.05), transparent 25%);
             min-height: 100vh;
-            position: relative;
             overflow-x: hidden;
         }
 
-        .bg-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
-
-        .container { max-width: 1400px; margin: 0 auto; position: relative; z-index: 1; }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            background: linear-gradient(90deg, rgba(10,16,29,0.9) 0%, rgba(5,9,20,0.9) 100%);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+        }
 
         h1 {
-            text-align: center;
-            color: #ffffff;
-            margin-bottom: 28px;
-            font-size: 3.6em;
-            font-family: 'Bebas Neue', sans-serif;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            font-weight: 400;
-        }
-
-        h2 {
-            font-family: 'Bebas Neue', sans-serif;
+            font-family: 'Orbitron', sans-serif;
+            margin: 0;
+            font-size: 28px;
             letter-spacing: 2px;
-            font-weight: 400;
+            color: #fff;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0,255,204,0.5);
+        }
+        
+        .header-sub {
+            font-size: 14px;
+            color: var(--accent);
+            letter-spacing: 1px;
         }
 
-        /* ── CONTROLS ── */
-        .controls {
-            text-align: center;
-            margin-bottom: 18px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
+        .global-status {
+            padding: 10px 25px;
+            border-radius: 4px;
+            font-size: 20px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            letter-spacing: 1px;
+            box-shadow: 0 0 20px rgba(0,255,204,0.2);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            text-shadow: 0 0 5px var(--accent);
+            transition: all 0.3s;
         }
 
-        button {
-            background: transparent;
-            color: #ffffff;
-            border: 2px solid #ffffff;
-            padding: 12px 26px;
-            border-radius: 0;
-            cursor: pointer;
-            font-size: 0.95em;
-            font-weight: 600;
-            transition: all 0.3s ease;
+        .global-status.danger {
+            border-color: var(--danger);
+            color: var(--danger);
+            box-shadow: 0 0 20px rgba(255,51,102,0.4);
+            text-shadow: 0 0 5px var(--danger);
+            animation: pulse-danger 1s infinite alternate;
+        }
+
+        @keyframes pulse-danger {
+            0% { box-shadow: 0 0 20px rgba(255,51,102,0.4); }
+            100% { box-shadow: 0 0 40px rgba(255,51,102,0.8); }
+        }
+
+        .container {
+            padding: 30px 40px;
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            gap: 25px;
+        }
+
+        .panel {
+            background: var(--glass);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            backdrop-filter: blur(8px);
+            box-shadow: inset 0 0 20px rgba(0,255,204,0.02);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0.5;
+        }
+
+        .panel h2 {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #fff;
             text-transform: uppercase;
             letter-spacing: 1.5px;
-            font-family: 'Bebas Neue', sans-serif;
-        }
-        button:hover { background: #ffffff; color: #0a0a0a; transform: translateY(-2px); }
-        button.success { border-color: rgba(255,255,255,0.6); color: rgba(255,255,255,0.8); }
-        button.success:hover { background: #ffffff; color: #0a0a0a; border-color: #ffffff; }
-
-        /* ── TOP: 4 compact metric cards ── */
-        .metric-row {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-            margin-bottom: 14px;
-        }
-
-        .m-card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 2px;
-            padding: 14px 18px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            transition: all 0.3s ease;
-        }
-        .m-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.2); }
-
-        .m-title {
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 0.85em;
-            letter-spacing: 2px;
-            color: rgba(255,255,255,0.45);
-            margin-bottom: 3px;
-        }
-
-        .m-value {
-            font-family: 'Bebas Neue', sans-serif;
-            font-size: 2.2em;
-            letter-spacing: 2px;
-            line-height: 1;
-            color: #ffffff;
-        }
-        .m-value.infected { animation: pulse 1s infinite; }
-        .m-value.warning  { color: #fbbf24; }
-        .m-value.critical { animation: pulse 0.8s infinite; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-
-        .status-badge {
-            display: inline-block;
-            padding: 5px 11px;
-            font-size: 0.72em;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            font-family: 'Bebas Neue', sans-serif;
-            border: 1px solid;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-        .status-healthy  { background: transparent; color: #ffffff; border-color: #ffffff; }
-        .status-infected { background: #ffffff; color: #0a0a0a; border-color: #ffffff; }
-        .status-running  { background: transparent; color: rgba(255,255,255,0.6); border-color: rgba(255,255,255,0.35); }
-        .status-warn     { background: transparent; color: #fbbf24; border-color: rgba(251,191,36,0.55); }
-
-        /* ── BOTTOM: left col + logs ── */
-        .bottom-grid {
-            display: grid;
-            grid-template-columns: 360px 1fr;
-            gap: 14px;
-        }
-
-        .left-col { display: flex; flex-direction: column; gap: 14px; }
-
-        .card {
-            background: rgba(255,255,255,0.03);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 2px;
-            padding: 20px 22px;
-            backdrop-filter: blur(10px);
-            transition: all 0.3s ease;
-        }
-        .card:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); }
-        .card h2 {
-            margin-bottom: 14px;
-            color: #ffffff;
-            border-bottom: 1px solid rgba(255,255,255,0.12);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
             padding-bottom: 10px;
-            font-size: 1.4em;
         }
 
-        /* containers */
-        .container-list { list-style: none; }
-        .container-item {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(255,255,255,0.07);
-            padding: 10px 13px;
-            margin: 7px 0;
+        /* Metrics */
+        .metric {
+            margin-bottom: 25px;
+        }
+        
+        .metric-label {
+            font-size: 13px;
+            color: rgba(255,255,255,0.6);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .metric-val {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 32px;
+            color: var(--accent);
+            font-weight: 500;
+        }
+        
+        .progress-bg {
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: var(--accent);
+            width: 0%;
+            transition: width 0.3s ease, background 0.3s ease;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .progress-bar.high {
+            background: var(--danger);
+            box-shadow: 0 0 10px var(--danger);
+        }
+
+        /* Status Items */
+        .status-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        
+        .status-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: all 0.2s ease;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 15px;
         }
-        .container-item:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.16); }
-        .container-item strong { font-weight: 500; font-size: 0.88em; }
-
-        /* system metrics */
-        .metric {
-            display: flex;
-            justify-content: space-between;
-            padding: 9px 0;
-            border-bottom: 1px solid rgba(255,255,255,0.07);
-            font-size: 0.9em;
+        
+        .indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            margin-right: 10px;
+            box-shadow: 0 0 8px var(--accent);
         }
-        .metric:last-child { border-bottom: none; }
-        .metric span:first-child { color: rgba(255,255,255,0.55); }
-        .metric span:last-child  { color: #ffffff; font-weight: 600; }
+        
+        .indicator.offline {
+            background: #555;
+            box-shadow: none;
+        }
 
-        /* logs */
-        .logs-card { display: flex; flex-direction: column; }
+        /* Attack Button */
+        .attack-btn {
+            width: 100%;
+            background: rgba(255,51,102,0.1);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            padding: 15px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 15px rgba(255,51,102,0.1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .attack-btn:hover {
+            background: rgba(255,51,102,0.2);
+            box-shadow: 0 0 20px rgba(255,51,102,0.4), inset 0 0 15px rgba(255,51,102,0.2);
+        }
+        
+        .attack-btn:active {
+            transform: scale(0.98);
+        }
 
-        .logs {
-            height: 420px;
+        /* Logs */
+        .logs-container {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 4px;
+            height: 480px;
             overflow-y: auto;
-            background: rgba(0,0,0,0.55);
-            border: 1px solid rgba(255,255,255,0.08);
-            color: #e5e5e5;
-            padding: 14px 16px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8em;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 13px;
         }
-        .logs::-webkit-scrollbar { width: 6px; }
-        .logs::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-        .logs::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.13); }
-        .logs::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
-
+        
+        .logs-container::-webkit-scrollbar { width: 5px; }
+        .logs-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 5px; }
+        
         .log-entry {
-            margin: 5px 0;
-            padding: 6px 10px;
-            border-left: 2px solid rgba(255,255,255,0.22);
+            margin-bottom: 8px;
+            line-height: 1.4;
+            padding-left: 10px;
+            border-left: 2px solid transparent;
         }
-        .log-entry.ERROR     { border-left-color: #ffffff; background: rgba(255,255,255,0.04); }
-        .log-entry.SUCCESS   { border-left-color: #ffffff; }
-        .log-entry.HEALING   { border-left-color: rgba(255,255,255,0.5); }
-        .log-entry.ATTACK    { border-left-color: #ffffff; background: rgba(255,255,255,0.06); }
-        .log-entry.DETECTION { border-left-color: #fbbf24; background: rgba(251,191,36,0.07); }
+        
+        .log-time { color: rgba(255,255,255,0.4); margin-right: 10px; }
+        .log-type {
+            display: inline-block;
+            min-width: 80px;
+            font-weight: bold;
+        }
+        
+        .log-INFO { border-left-color: var(--accent); }
+        .log-INFO .log-type { color: var(--accent); }
+        .log-ERROR { border-left-color: var(--danger); }
+        .log-ERROR .log-type { color: var(--danger); }
+        .log-STATE { border-left-color: #bb86fc; }
+        .log-STATE .log-type { color: #bb86fc; }
+        .log-SECURITY { border-left-color: var(--warn); }
+        .log-SECURITY .log-type { color: var(--warn); }
+        .log-HEALING { border-left-color: #00ffcc; }
+        .log-HEALING .log-type { color: #00ffcc; }
+        .log-VERIFY { border-left-color: #3b82f6; }
+        .log-VERIFY .log-type { color: #3b82f6; }
+        
+        /* Central visual */
+        .stage-visual {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 250px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .core-shield {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            border: 2px solid var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 20px;
+            color: var(--accent);
+            box-shadow: 0 0 40px rgba(0,255,204,0.2), inset 0 0 30px rgba(0,255,204,0.1);
+            position: relative;
+            z-index: 2;
+            transition: all 0.5s;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+        
+        .core-shield::after {
+            content: '';
+            position: absolute;
+            top: -15px; left: -15px; right: -15px; bottom: -15px;
+            border: 1px dashed rgba(0,255,204,0.3);
+            border-radius: 50%;
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate { 100% { transform: rotate(360deg); } }
 
-        @media (max-width: 1000px) {
-            .metric-row  { grid-template-columns: repeat(2,1fr); }
-            .bottom-grid { grid-template-columns: 1fr; }
+        .core-shield.danger {
+            border-color: var(--danger);
+            color: var(--danger);
+            box-shadow: 0 0 50px rgba(255,51,102,0.4), inset 0 0 40px rgba(255,51,102,0.2);
         }
-        @media (max-width: 600px) {
-            h1 { font-size: 2.4em; }
-            .metric-row { grid-template-columns: 1fr 1fr; }
-            .controls   { flex-direction: column; }
+        .core-shield.danger::after { border-color: rgba(255,51,102,0.4); animation: rotate 5s linear infinite; }
+        
+        .core-shield.verifying {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            box-shadow: 0 0 40px rgba(59,130,246,0.3);
+        }
+        .core-shield.verifying::after { border-style: solid; border-color: rgba(59,130,246,0.2); animation: pulse 1s infinite alternate; }
+        
+        .state-text {
+            margin-top: 30px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 24px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            text-align: center;
+        }
+        
+        .anomaly-card {
+            background: rgba(255,51,102,0.1);
+            border: 1px solid var(--danger);
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none; /* hidden by default */
+        }
+        .anomaly-card.active { display: block; }
+        
+        .an-title { color: var(--danger); font-family: 'Orbitron', sans-serif; font-size: 14px; margin-bottom: 10px; }
+        .an-score { font-size: 24px; color: #fff; font-family: 'Orbitron', sans-serif; }
+        
+        /* Grid layout adjustments for mobile */
+        @media(max-width: 1200px) {
+            .container { grid-template-columns: 1fr 1fr; }
+            .right-panel { grid-column: span 2; }
+        }
+        @media(max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+            .right-panel { grid-column: span 1; }
         }
     </style>
 </head>
 <body>
-<canvas class="bg-canvas" id="bgCanvas"></canvas>
 
-<div class="container">
-
-    <h1>LizardTail — Self-Healing System</h1>
-
-    <!-- CONTROLS -->
-    <div class="controls">
-        <button class="danger" onclick="attackService()"> ATTACK SERVICE_A</button>
-        <button class="success" onclick="healService()"> HEAL SERVICE_A</button>
+    <div class="header">
+        <div>
+            <h1>LizardTail</h1>
+            <div class="header-sub">Self-Healing Endpoint Security</div>
+        </div>
+        <div id="global-status" class="global-status">
+            🟢 PROTECTED
+        </div>
     </div>
 
-    <!-- TOP ROW: Temperature | CPU | Memory | Network -->
-    <div class="metric-row">
-
-        <div class="m-card">
-            <div>
-                <div class="m-title">Live Temperature</div>
-                <div class="m-value normal" id="temperature">--</div>
+    <div class="container">
+        <!-- LEFT: DEVICE OVERVIEW -->
+        <div class="panel">
+            <h2>Device Overview</h2>
+            
+            <div class="metric">
+                <div class="metric-label"><span>CPU Usage</span> <span id="cpu-val-small">0%</span></div>
+                <div class="metric-val" id="cpu-val">0<span style="font-size:16px">%</span></div>
+                <div class="progress-bg"><div class="progress-bar" id="cpu-bar"></div></div>
             </div>
-            <span class="status-badge status-healthy" id="service-status">LOADING</span>
-        </div>
-
-        <div class="m-card">
-            <div>
-                <div class="m-title">CPU Usage</div>
-                <div class="m-value normal" id="cpu-value">--</div>
+            
+            <div class="metric">
+                <div class="metric-label"><span>RAM Usage</span> <span id="mem-val-small">0%</span></div>
+                <div class="metric-val" id="mem-val">0<span style="font-size:16px">%</span></div>
+                <div class="progress-bg"><div class="progress-bar" id="mem-bar"></div></div>
             </div>
-            <span class="status-badge status-running" id="cpu-status">NORMAL</span>
-        </div>
-
-        <div class="m-card">
-            <div>
-                <div class="m-title">Memory Usage</div>
-                <div class="m-value normal" id="memory-value">--</div>
+            
+            <div class="metric">
+                <div class="metric-label"><span>Disk</span></div>
+                <div class="metric-val" id="disk-val">0<span style="font-size:16px">%</span></div>
+                <div class="progress-bg"><div class="progress-bar" id="disk-bar"></div></div>
             </div>
-            <span class="status-badge status-running" id="memory-status">NORMAL</span>
-        </div>
-
-        <div class="m-card">
-            <div>
-                <div class="m-title">Network Traffic</div>
-                <div class="m-value normal" id="network-value">--</div>
+            
+            <div class="metric">
+                <div class="metric-label"><span>Network (TX/RX)</span></div>
+                <div class="metric-val" style="font-size: 22px;" id="net-val">0 / 0 <span style="font-size:14px">MB</span></div>
             </div>
-            <span class="status-badge status-running" id="network-status">NORMAL</span>
-        </div>
+            
+            <div class="metric">
+                <div class="metric-label"><span>Process Count</span></div>
+                <div class="metric-val" id="proc-val">0</div>
+            </div>
 
+            <h2 style="margin-top: 40px;">Security Status</h2>
+            <ul class="status-list">
+                <li class="status-item"><span>ML Engine</span> <span><i class="indicator"></i>ONLINE</span></li>
+                <li class="status-item"><span>Agent Node</span> <span><i class="indicator"></i>ONLINE</span></li>
+                <li class="status-item"><span>Healing Engine</span> <span><i class="indicator"></i>READY</span></li>
+            </ul>
+        </div>
+        
+        <!-- MIDDLE: ORCHESTRATOR VISUAL & CONTROLS -->
+        <div class="panel">
+            <h2>System Core</h2>
+            
+            <div class="stage-visual">
+                <div id="core-shield" class="core-shield">NORMAL</div>
+                <div id="state-text" class="state-text" style="color: var(--accent);">SYSTEM SECURE</div>
+            </div>
+            
+            <div id="anomaly-card" class="anomaly-card">
+                <div class="an-title">⚠ ML DETECTED ANOMALY</div>
+                <div>Anomaly Score: <span class="an-score" id="an-score">0.00</span></div>
+                <div style="margin-top:10px; font-size:14px; opacity:0.8" id="an-reason">Checking reason...</div>
+            </div>
+
+            <h2 style="margin-top: 40px;">Protected Services</h2>
+            <ul class="status-list" id="services-list">
+                <!-- Injected via JS -->
+            </ul>
+            
+            <div style="margin-top: 30px;">
+                <button class="attack-btn" onclick="startAttack()">⚠ SIMULATE ATTACK</button>
+                <div style="text-align:center; font-size: 13px; color: rgba(255,255,255,0.4)">
+                    Run a safe simulated attack inside the LizardTail test environment.
+                </div>
+            </div>
+        </div>
+        
+        <!-- RIGHT: INCIDENT TIMELINE -->
+        <div class="panel right-panel">
+            <h2>Incident Timeline</h2>
+            <div class="logs-container" id="logs-container">
+                <!-- Logs injected via JS -->
+            </div>
+        </div>
     </div>
 
-    <!-- BOTTOM: left (containers + metrics) | right (logs) -->
-    <div class="bottom-grid">
+    <script>
+        const API_BASE = "http://localhost:8000";
 
-        <div class="left-col">
-            <div class="card">
-                <h2>Running Containers</h2>
-                <ul class="container-list" id="container-list">
-                    <li class="container-item"><span>Loading...</span></li>
-                </ul>
-            </div>
-
-            <div class="card">
-                <h2>System Metrics</h2>
-                <div class="metric"><span>Total Requests</span><span id="total-requests">0</span></div>
-                <div class="metric"><span>Failed Requests</span><span id="failed-requests">0</span></div>
-                <div class="metric"><span>Avg Response Time</span><span id="avg-response">0ms</span></div>
-                <div class="metric"><span>Heal Count</span><span id="heal-count">0</span></div>
-            </div>
-        </div>
-
-        <div class="card logs-card">
-            <h2>Event Logs</h2>
-            <div class="logs" id="logs">
-                <div class="log-entry">System initializing...</div>
-            </div>
-        </div>
-
-    </div>
-</div>
-
-<script>
-    /* BACKGROUND */
-    const canvas = document.getElementById('bgCanvas');
-    const ctx = canvas.getContext('2d');
-    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-    let particles = [], mouse = { x: null, y: null, radius: 150 };
-    window.addEventListener('resize', () => { canvas.width=window.innerWidth; canvas.height=window.innerHeight; init(); });
-    window.addEventListener('mousemove', e => { mouse.x=e.x; mouse.y=e.y; });
-    window.addEventListener('touchmove', e => { mouse.x=e.touches[0].clientX; mouse.y=e.touches[0].clientY; });
-    class Particle {
-        constructor(x,y){ this.x=x; this.y=y; this.size=Math.random()*2+0.5; this.baseX=x; this.baseY=y; this.density=(Math.random()*30)+1; this.opacity=Math.random()*0.5+0.1; }
-        draw(){ ctx.fillStyle=`rgba(255,255,255,${this.opacity})`; ctx.beginPath(); ctx.arc(this.x,this.y,this.size,0,Math.PI*2); ctx.closePath(); ctx.fill(); }
-        update(){
-            let dx=mouse.x-this.x, dy=mouse.y-this.y, d=Math.sqrt(dx*dx+dy*dy), force=(mouse.radius-d)/mouse.radius;
-            if(d<mouse.radius){ this.x-=(dx/d)*force*this.density; this.y-=(dy/d)*force*this.density; }
-            else { this.x+=(this.baseX-this.x)/10; this.y+=(this.baseY-this.y)/10; }
+        async function fetchUpdate() {
+            try {
+                // Fetch State
+                const statusRes = await fetch(`${API_BASE}/status`);
+                const statusData = await statusRes.json();
+                
+                // Fetch Logs
+                const logsRes = await fetch(`${API_BASE}/logs`);
+                const logsData = await logsRes.json();
+                
+                updateUI(statusData, logsData);
+            } catch (err) {
+                console.error("Failed to connect to backend", err);
+            }
         }
-    }
-    function init(){ particles=[]; let n=(canvas.width*canvas.height)/15000; for(let i=0;i<n;i++) particles.push(new Particle(Math.random()*canvas.width,Math.random()*canvas.height)); }
-    function connect(){ for(let a=0;a<particles.length;a++) for(let b=a;b<particles.length;b++){ let dx=particles[a].x-particles[b].x,dy=particles[a].y-particles[b].y,d=Math.sqrt(dx*dx+dy*dy); if(d<100){ctx.strokeStyle=`rgba(255,255,255,${(1-d/100)*0.1})`;ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(particles[a].x,particles[a].y);ctx.lineTo(particles[b].x,particles[b].y);ctx.stroke();}}}
-    function animate(){ ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{p.draw();p.update();}); connect(); requestAnimationFrame(animate); }
-    init(); animate();
+        
+        function updateUI(status, logs) {
+            // Update Telemetry
+            if(status.telemetry) {
+                const tel = status.telemetry;
+                
+                const cpu = (tel.cpu || 0).toFixed(1);
+                document.getElementById('cpu-val').innerHTML = `${cpu}<span style="font-size:16px">%</span>`;
+                document.getElementById('cpu-val-small').innerText = `${cpu}%`;
+                document.getElementById('cpu-bar').style.width = `${cpu}%`;
+                if(cpu > 85) document.getElementById('cpu-bar').classList.add('high');
+                else document.getElementById('cpu-bar').classList.remove('high');
+                
+                const mem = (tel.memory || 0).toFixed(1);
+                document.getElementById('mem-val').innerHTML = `${mem}<span style="font-size:16px">%</span>`;
+                document.getElementById('mem-val-small').innerText = `${mem}%`;
+                document.getElementById('mem-bar').style.width = `${mem}%`;
+                if(mem > 85) document.getElementById('mem-bar').classList.add('high');
+                else document.getElementById('mem-bar').classList.remove('high');
 
-    /* STATE */
-    let totalRequests=0, failedRequests=0, responseTimes=[], healCount=0;
+                const disk = (tel.disk || 0).toFixed(1);
+                document.getElementById('disk-val').innerHTML = `${disk}<span style="font-size:16px">%</span>`;
+                document.getElementById('disk-bar').style.width = `${disk}%`;
+                
+                document.getElementById('net-val').innerHTML = `${(tel.network_sent||0).toFixed(1)} / ${(tel.network_recv||0).toFixed(1)} <span style="font-size:14px">MB</span>`;
+                document.getElementById('proc-val').innerText = tel.process_count || 0;
+            }
+            
+            // Update Services List
+            const sList = document.getElementById('services-list');
+            sList.innerHTML = '';
+            if(status.containers && status.containers.length > 0) {
+                status.containers.forEach(c => {
+                    let st = `<i class="indicator"></i>RUNNING`;
+                    let color = `var(--accent)`;
+                    if(c.status !== 'running') {
+                        st = `<i class="indicator offline"></i>${c.status.toUpperCase()}`;
+                        color = `var(--warn)`;
+                    }
+                    if(status.system_state !== 'NORMAL' && c.name.includes("service_a")) {
+                        if(status.system_state === "ISOLATING" || status.system_state === "ISOLATED") {
+                            st = `<i class="indicator offline"></i>ISOLATED`;
+                            color = `var(--danger)`;
+                        }
+                    }
+                    
+                    sList.innerHTML += `<li class="status-item"><span>${c.name}</span> <span style="color:${color}">${st}</span></li>`;
+                });
+            } else {
+                sList.innerHTML = `<li class="status-item" style="color:#555">No containers found</li>`;
+            }
 
-    /* TEMPERATURE */
-    async function fetchTemperature() {
-        const t0=Date.now();
-        try {
-            const res=await fetch('http://127.0.0.1:5000/sensor');
-            responseTimes.push(Date.now()-t0);
-            if(responseTimes.length>20) responseTimes.shift();
-            totalRequests++;
-            const data=await res.json();
-            const vEl=document.getElementById('temperature'), bEl=document.getElementById('service-status');
-            vEl.textContent=data.temperature+'°C';
-            if(data.status==='INFECTED'){ vEl.className='m-value infected'; bEl.className='status-badge status-infected'; bEl.textContent='INFECTED'; }
-            else { vEl.className='m-value normal'; bEl.className='status-badge status-healthy'; bEl.textContent='HEALTHY'; }
-            updateStats();
-        } catch(e){ failedRequests++; totalRequests++; updateStats(); }
-    }
+            // Update State Visuals
+            const state = status.system_state || "NORMAL";
+            const shield = document.getElementById('core-shield');
+            const stateText = document.getElementById('state-text');
+            const anomalyCard = document.getElementById('anomaly-card');
+            const headerStatus = document.getElementById('global-status');
+            
+            shield.innerText = state.replace("_", "\n");
+            
+            // Status Logic
+            if(state === "NORMAL") {
+                shield.className = "core-shield";
+                stateText.innerText = "SYSTEM SECURE";
+                stateText.style.color = "var(--accent)";
+                anomalyCard.className = "anomaly-card";
+                headerStatus.innerHTML = "🟢 SYSTEM SECURE";
+                headerStatus.className = "global-status";
+            } 
+            else if(state === "VERIFYING" || state === "HEALING" || state === "RECOVERED") {
+                shield.className = "core-shield verifying";
+                stateText.innerText = "SELF-HEALING IN PROCESS";
+                stateText.style.color = "#3b82f6";
+                headerStatus.innerHTML = "🛡 RECOVERING";
+                headerStatus.className = "global-status";
+            }
+            else {
+                // Anomaly, Isolating
+                shield.className = "core-shield danger";
+                stateText.innerText = state === "ANOMALY_DETECTED" ? "⚠ ANOMALY DETECTED" : "⚠ THREAT ISOLATED";
+                stateText.style.color = "var(--danger)";
+                headerStatus.innerHTML = "🔴 THREAT DETECTED";
+                headerStatus.className = "global-status danger";
+            }
+            
+            // ML Details
+            if(status.anomaly_info && state !== "NORMAL") {
+                anomalyCard.className = "anomaly-card active";
+                document.getElementById('an-score').innerText = status.anomaly_info.score.toFixed(2);
+                document.getElementById('an-reason').innerText = status.anomaly_info.reason;
+            } else {
+                anomalyCard.className = "anomaly-card";
+            }
+            
+            // Logs
+            updateLogs(logs.logs);
+        }
 
-    /* CPU / MEMORY / NETWORK */
-    function setMetric(valId, badgeId, raw, unit) {
-        const vEl=document.getElementById(valId), bEl=document.getElementById(badgeId);
-        vEl.textContent=raw+unit;
-        const n=parseFloat(raw);
-        if(n>90){ vEl.className='m-value critical'; bEl.className='status-badge status-infected'; bEl.textContent='CRITICAL'; }
-        else if(n>70){ vEl.className='m-value warning'; bEl.className='status-badge status-warn'; bEl.textContent='WARNING'; }
-        else { vEl.className='m-value normal'; bEl.className='status-badge status-running'; bEl.textContent='NORMAL'; }
-    }
-    async function fetchMetrics() {
-        try {
-            const data=await(await fetch('http://127.0.0.1:5000/metrics')).json();
-            setMetric('cpu-value','cpu-status',data.cpu,'%');
-            setMetric('memory-value','memory-status',data.memory,'%');
-            setMetric('network-value','network-status',data.network,' MB');
-        } catch(e){}
-    }
+        function updateLogs(logArray) {
+            const container = document.getElementById('logs-container');
+            container.innerHTML = '';
+            
+            logArray.forEach(l => {
+                let cssClass = `log-${l.type}`;
+                container.innerHTML += `
+                    <div class="log-entry ${cssClass}">
+                        <span class="log-time">${l.timestamp}</span>
+                        <span class="log-type">[${l.type}]</span>
+                        <span class="log-msg">${l.message}</span>
+                    </div>
+                `;
+            });
+            
+            // Keep scrolled to bottom
+            container.scrollTop = container.scrollHeight;
+        }
 
-    /* CONTAINERS */
-    async function fetchContainers() {
-        try {
-            const data=await(await fetch('http://127.0.0.1:8000/status')).json();
-            const list=document.getElementById('container-list');
-            list.innerHTML='';
-            data.containers.forEach(c=>{ const li=document.createElement('li'); li.className='container-item'; li.innerHTML=`<span><strong>${c.name}</strong></span><span class="status-badge status-running">${c.status}</span>`; list.appendChild(li); });
-        } catch(e){}
-    }
-
-    /* LOGS */
-    async function fetchLogs() {
-        try {
-            const data=await(await fetch('http://127.0.0.1:8000/logs?limit=50')).json();
-            const el=document.getElementById('logs');
-            el.innerHTML='';
-            data.logs.forEach(log=>{ const d=document.createElement('div'); d.className=`log-entry ${log.type}`; d.textContent=`[${log.timestamp}] ${log.type}: ${log.message}`; el.appendChild(d); });
-            el.scrollTop=el.scrollHeight;
-        } catch(e){}
-    }
-
-    /* STATS */
-    function updateStats(){
-        document.getElementById('total-requests').textContent=totalRequests;
-        document.getElementById('failed-requests').textContent=failedRequests;
-        document.getElementById('heal-count').textContent=healCount;
-        if(responseTimes.length>0){ const avg=responseTimes.reduce((a,b)=>a+b,0)/responseTimes.length; document.getElementById('avg-response').textContent=Math.round(avg)+'ms'; }
-    }
-
-    /* BUTTONS */
-    async function attackService(){ await fetch('http://127.0.0.1:8000/infect/service_a',{method:'POST'}); }
-    async function healService(){ await fetch('http://127.0.0.1:8000/heal/lizardtail_service_a',{method:'POST'}); healCount++; updateStats(); }
-
-    /* INTERVALS */
-    setInterval(fetchTemperature,1000); setInterval(fetchMetrics,1000);
-    setInterval(fetchContainers,2000);  setInterval(fetchLogs,2000);
-    fetchTemperature(); fetchMetrics(); fetchContainers(); fetchLogs();
-</script>
+        async function startAttack() {
+            try {
+                await fetch(`${API_BASE}/simulate-attack`, {method: 'POST'});
+            } catch(e) {
+                console.error("Failed to start attack", e);
+            }
+        }
+        
+        // Loop
+        setInterval(fetchUpdate, 1000);
+        fetchUpdate();
+    </script>
 </body>
 </html>

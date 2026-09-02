@@ -1,3 +1,8 @@
 flask
 flask-cors
 docker
+requests
+pandas
+numpy
+scikit-learn
+joblib

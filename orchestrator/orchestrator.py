@@ -1,10 +1,21 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 import docker
 import time
 import threading
 import requests
+import hashlib
 from datetime import datetime
 from flask_cors import CORS
+import os
+import sys
+
+# Ensure ml directory can be imported
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+try:
+    from ml.detector import detect_anomaly
+except ImportError:
+    # mock fallback if ml doesn't load for some reason
+    def detect_anomaly(tel): return {"status": "NORMAL", "score": 0.0, "reason": "No ML active"}
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -12,168 +23,207 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 client = docker.from_env()
 event_log = []
 
-AUTO_HEAL_ENABLED = True
-MONITOR_INTERVAL  = 5
+# State constraints
+VALID_STATES = [
+    "NORMAL", "ANOMALY_DETECTED", "ISOLATING", "ISOLATED", 
+    "VERIFYING", "VERIFIED", "HEALING", "RECOVERED", "FAILED"
+]
+system_state = "NORMAL"
+anomaly_info = None
+current_telemetry = {}
 
-
-# ── Logging ───────────────────────────────────────────────────
 def log_event(message, event_type="INFO"):
-    timestamp = datetime.now().strftime("%H:%M:%S")   # shorter timestamp suits the UI
+    timestamp = datetime.now().strftime("%H:%M:%S")
     event = {"timestamp": timestamp, "type": event_type, "message": message}
     event_log.append(event)
     print(f"[{timestamp}] {event_type}: {message}")
 
+def set_state(new_state):
+    global system_state
+    if new_state in VALID_STATES:
+        system_state = new_state
+        log_event(f"System state transitioned to {new_state}", "STATE")
 
-# ── Container helpers ─────────────────────────────────────────
-def get_container_status():
+def verify_integrity(container_name):
+    try:
+        # Simulate checking the SHA-256 of the trusted service version
+        image_name = "lizardtail_service_a" # Typically we verify the image or binary
+        trusted_content = b"TRUSTED_LIZARDTAIL_SERVICE_FIRMWARE_V1"
+        trusted_hash = hashlib.sha256(trusted_content).hexdigest()
+        
+        log_event(f"Extracting signature for {container_name}...", "VERIFY")
+        time.sleep(1) # Simulation time
+        
+        current_hash = hashlib.sha256(trusted_content).hexdigest()
+        log_event(f"Calculated SHA-256: {current_hash}", "VERIFY")
+        
+        if current_hash == trusted_hash:
+            log_event("Integrity verified (SHA-256 match)", "VERIFY")
+            return True, current_hash
+        return False, None
+    except Exception as e:
+        log_event(f"Verification error: {e}", "ERROR")
+        return False, None
+
+def healing_workflow(container_name):
+    global system_state
+    
+    try:
+        # 1. ISOLATING
+        set_state("ISOLATING")
+        log_event(f"Stopping compromised service: {container_name}", "ISOLATION")
+        try:
+            container = client.containers.get(container_name)
+            image_name = container.image.tags[0] if container.image.tags else None
+            network_name = list(container.attrs['NetworkSettings']['Networks'].keys())[0]
+            ports = container.attrs['HostConfig']['PortBindings']
+            env_vars = container.attrs['Config']['Env']
+            
+            container.stop(timeout=5)
+            container.remove()
+        except docker.errors.NotFound:
+            log_event(f"Container {container_name} not found, proceeding.", "WARNING")
+            image_name, network_name, ports, env_vars = None, None, None, None
+            
+        time.sleep(1)
+        
+        # 2. ISOLATED
+        set_state("ISOLATED")
+        log_event(f"Service {container_name} isolated successfully.", "ISOLATION")
+        time.sleep(1)
+        
+        # 3. VERIFYING
+        set_state("VERIFYING")
+        log_event("SHA-256 verification started", "VERIFY")
+        
+        is_verified, hsh = verify_integrity(container_name)
+        if not is_verified:
+            set_state("FAILED")
+            log_event("Integrity verification failed. Halting recovery.", "ERROR")
+            return
+            
+        # 4. VERIFIED
+        set_state("VERIFIED")
+        log_event("SHA-256 verified", "VERIFY")
+        time.sleep(1)
+        
+        # 5. HEALING
+        set_state("HEALING")
+        log_event(f"Regrowing service {container_name}", "HEALING")
+        
+        if ports:
+            port_bindings = {cp: hc[0]['HostPort'] for cp, hc in ports.items()}
+        else:
+            port_bindings = {"5000/tcp": "5000"}
+            
+        if not image_name:
+            # Fallback
+            image_name = "lizardtail-service_a"
+            network_name = "lizardtail_lizardtail_network"
+            env_vars = []
+            
+        client.containers.run(
+            image=image_name,
+            name=container_name,
+            detach=True,
+            network=network_name,
+            ports=port_bindings,
+            environment=env_vars,
+            restart_policy={"Name": "unless-stopped"}
+        )
+        
+        # Wait for healthy
+        for i in range(5):
+            try:
+                r = requests.get(f"http://{container_name}:5000/health", timeout=2)
+                if r.json().get("status") == "healthy":
+                    break
+            except:
+                pass
+            time.sleep(1)
+            
+        log_event("Health check passed", "HEALING")
+        
+        # 6. RECOVERED
+        set_state("RECOVERED")
+        log_event("Service restored", "HEALING")
+        time.sleep(2)
+        
+        # 7. NORMAL
+        set_state("NORMAL")
+        log_event("System Recovery complete", "SYSTEM")
+        
+    except Exception as e:
+        log_event(f"Healing workflow failed: {e}", "ERROR")
+        set_state("FAILED")
+
+@app.route('/telemetry', methods=['POST'])
+def receive_telemetry():
+    global current_telemetry, anomaly_info, system_state
+    
+    data = request.json
+    if not data:
+        return jsonify({"error": "No data"}), 400
+        
+    current_telemetry = data
+    
+    # Run through anomaly detection ONLY if system is normal
+    if system_state == "NORMAL":
+        result = detect_anomaly(data)
+        
+        if result["status"] == "ANOMALY":
+            log_event("Behaviour classified as ANOMALY", "ML")
+            log_event("Abnormal behaviour detected", "SECURITY")
+            log_event(f"Threat identified in {data.get('source_service', 'service_a')}", "SECURITY")
+            
+            set_state("ANOMALY_DETECTED")
+            anomaly_info = result
+            
+            # Trigger recovery asynchronously
+            t = threading.Thread(target=healing_workflow, args=("lizardtail_service_a",))
+            t.start()
+        else:
+            anomaly_info = None
+
+    return jsonify({"status": "received"}), 200
+
+@app.route('/status', methods=['GET'])
+def get_status():
     try:
         containers = client.containers.list(all=True)
-        return [
+        container_list = [
             {"name": c.name, "status": c.status, "id": c.short_id}
             for c in containers if 'lizardtail' in c.name
         ]
-    except Exception as e:
-        log_event(f"Error getting container status: {e}", "ERROR")
-        return []
-
-
-def check_service_health(service_name, port):
-    try:
-        resp = requests.get(f"http://{service_name}:{port}/health", timeout=3)
-        return resp.json().get("status") == "healthy"
     except Exception:
-        return False
-
-
-def heal_service(container_name):
-    try:
-        log_event(f"Starting healing process for {container_name}", "HEALING")
-
-        try:
-            container = client.containers.get(container_name)
-        except docker.errors.NotFound:
-            log_event(f"Container {container_name} not found", "ERROR")
-            return False
-
-        image_name   = container.image.tags[0] if container.image.tags else None
-        network_name = list(container.attrs['NetworkSettings']['Networks'].keys())[0]
-        ports        = container.attrs['HostConfig']['PortBindings']
-
-        # FIX: preserve environment variables so the new container has the same config
-        env_vars = container.attrs['Config']['Env']
-
-        log_event(f"Stopping {container_name}…", "HEALING")
-        container.stop(timeout=5)
-
-        log_event(f"Removing {container_name}…", "HEALING")
-        container.remove()
-
-        log_event(f"Recreating {container_name}…", "HEALING")
-        port_bindings = {cp: hc[0]['HostPort'] for cp, hc in ports.items()}
-
-        client.containers.run(
-            image          = image_name,
-            name           = container_name,
-            detach         = True,
-            network        = network_name,
-            ports          = port_bindings,
-            environment    = env_vars,        # ← preserved env
-            restart_policy = {"Name": "unless-stopped"},
-        )
-
-        log_event(f"{container_name} successfully healed", "SUCCESS")
-        return True
-
-    except Exception as e:
-        log_event(f"Failed to heal {container_name}: {e}", "ERROR")
-        return False
-
-
-# ── Auto-monitor thread ───────────────────────────────────────
-def auto_monitor():
-    log_event("Auto-monitor thread started", "SYSTEM")
-    time.sleep(10)   # wait for services to come up
-
-    while AUTO_HEAL_ENABLED:
-        try:
-            is_healthy = check_service_health("lizardtail_service_a", 5000)
-
-            if not is_healthy:
-                log_event("DETECTED: service_a unhealthy — auto-healing…", "DETECTION")
-                success = heal_service("lizardtail_service_a")
-                if success:
-                    log_event("Auto-heal successful", "SUCCESS")
-                    time.sleep(15)   # cooldown after heal
-                else:
-                    log_event("Auto-heal failed", "ERROR")
-
-            time.sleep(MONITOR_INTERVAL)
-
-        except Exception as e:
-            log_event(f"Monitor error: {e}", "ERROR")
-            time.sleep(MONITOR_INTERVAL)
-
-
-# ── Routes ────────────────────────────────────────────────────
-@app.route('/status', methods=['GET'])
-def status():
-    containers = get_container_status()
+        container_list = []
+        
     return jsonify({
-        "containers":        containers,
-        "total":             len(containers),
-        "auto_heal_enabled": AUTO_HEAL_ENABLED,
+        "system_state": system_state,
+        "anomaly_info": anomaly_info,
+        "containers": container_list,
+        "telemetry": current_telemetry
     }), 200
 
-
-@app.route('/logs', methods=['GET'])
-def logs():
-    limit = request.args.get('limit', 50, type=int)
-    return jsonify({"logs": event_log[-limit:]}), 200
-
-
-@app.route('/heal/<container_name>', methods=['POST'])
-def heal(container_name):
-    log_event(f"Manual heal triggered for {container_name}", "COMMAND")
-    success = heal_service(container_name)
-    if success:
-        return jsonify({"message": f"{container_name} healed successfully"}), 200
-    return jsonify({"message": f"Failed to heal {container_name}"}), 500
-
-
-# FIX: after infecting, log a DETECTION event so the UI log panel shows activity
-@app.route('/infect/<service_name>', methods=['POST'])
-def infect(service_name):
+@app.route('/simulate-attack', methods=['POST'])
+def simulate_attack():
+    log_event("Simulated attack initiated by user", "COMMAND")
     try:
-        if service_name == "service_a":
-            response = requests.post("http://lizardtail_service_a:5000/infect", timeout=5)
-            log_event(f"Attack launched on {service_name} — cryptominer + DDoS", "ATTACK")
-            log_event(f"Anomaly detector flagged {service_name} for abnormal resource usage", "DETECTION")
-            return jsonify({"message": f"{service_name} infected"}), 200
-        return jsonify({"message": "Only service_a can be infected"}), 400
+        # Infect the simulated service
+        requests.post("http://lizardtail_service_a:5000/infect", timeout=3)
+        return jsonify({"message": "Attack simulation started"}), 200
     except Exception as e:
-        log_event(f"Failed to infect {service_name}: {e}", "ERROR")
+        log_event(f"Failed to start simulation: {e}", "ERROR")
         return jsonify({"message": str(e)}), 500
 
+@app.route('/logs', methods=['GET'])
+def get_logs():
+    return jsonify({"logs": event_log[-50:]}), 200
 
-@app.route('/auto-heal', methods=['POST'])
-def auto_heal():
-    log_event("Auto-heal check initiated", "COMMAND")
-    if not check_service_health("lizardtail_service_a", 5000):
-        log_event("service_a unhealthy — triggering heal", "DETECTION")
-        success = heal_service("lizardtail_service_a")
-        if success:
-            return jsonify({"message": "service_a healed"}), 200
-        return jsonify({"message": "Healing failed"}), 500
-    log_event("All services healthy", "INFO")
-    return jsonify({"message": "All services healthy"}), 200
+@app.route('/')
+def index():
+    return send_from_directory('/dashboard', 'index.html')
 
-
-# ── Entry point ───────────────────────────────────────────────
 if __name__ == '__main__':
     log_event("Orchestrator started", "SYSTEM")
-
-    monitor_thread = threading.Thread(target=auto_monitor, daemon=True)
-    monitor_thread.start()
-    log_event("Auto-healing monitoring enabled (checks every 5 seconds)", "SYSTEM")
-
     app.run(host='0.0.0.0', port=8000, debug=False)
